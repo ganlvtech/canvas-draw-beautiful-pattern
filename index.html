@@ -21,9 +21,9 @@
 </head>
 <body>
     <form>
-        <p>N = <input type="text" name="N" value="5"></p>
-        <p><input type="checkbox" name="no_mirror" value="1"> no mirror</p>
-        <p><input type="submit"></p>
+        <p>N = <input type="text" id="N" name="N" value="5"></p>
+        <p><input type="checkbox" id="no_mirror" name="no_mirror" value="1"> <label for="no_mirror">no mirror</label></p>
+        <p><input type="submit"> <button id="reset">Reset</button></p>
     </form>
     <canvas id="canvas" width="800" height="600"></canvas>
     <script>
@@ -35,6 +35,11 @@
 
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      document.getElementById('reset').addEventListener('click', function () {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      });
 
       var centerX = canvas.width / 2;
       var centerY = canvas.height / 2;
@@ -49,10 +54,19 @@
       if (N < 1) {
         N = 1;
       }
-      var isMirror = true;
+      var no_mirror = false;
       if (urlParams.has('no_mirror')) {
-        isMirror = urlParams.get('no_mirror') == false;
+        no_mirror = urlParams.get('no_mirror') == true;
       }
+      document.getElementById('N').value = N;
+      document.getElementById('no_mirror').checked = no_mirror;
+      document.getElementById('N').addEventListener('change', function () {
+        N = document.getElementById('N').value;
+      });
+      document.getElementById('no_mirror').checked = no_mirror;
+      document.getElementById('no_mirror').addEventListener('change', function () {
+        no_mirror = document.getElementById('no_mirror').checked;
+      });
 
       function drawOne(x, y) {
         ctx.fillRect(x - 2, y - 2, 5, 5);
@@ -91,7 +105,7 @@
           var x2 = centerX + x1 * cos - y1 * sin;
           var y2 = centerY + x1 * sin + y1 * cos;
           drawOne(x2, y2);
-          if (isMirror) {
+          if (!no_mirror) {
             drawOne(canvas.width - x2, y2);
           }
         }
