@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+        form {
+            position: absolute;
+            left: 0;
+            top: 0;
+            background-color: rgba(255, 255, 255, 0.5);
+            padding: 0 1em;
+        }
+        canvas {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <form>
+        <p>N = <input type="text" name="N" value="5"></p>
+        <p><input type="checkbox" name="no_mirror" value="1"> no mirror</p>
+        <p><input type="submit"></p>
+    </form>
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <script>
+      var canvas = document.getElementById('canvas');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      var ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      var centerX = canvas.width / 2;
+      var centerY = canvas.height / 2;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(centerX - 1, centerY - 1, 3, 3);
+
+      var urlParams = new URLSearchParams(window.location.search);
+      var N = 5;
+      if (urlParams.has('N')) {
+        N = parseInt(urlParams.get('N'));
+      }
+      if (N < 1) {
+        N = 1;
+      }
+      var isMirror = true;
+      if (urlParams.has('no_mirror')) {
+        isMirror = urlParams.get('no_mirror') == false;
+      }
+
+      function drawOne(x, y) {
+        ctx.fillRect(x - 2, y - 2, 5, 5);
+      }
+
+      var r = Math.floor(128 + 128 * Math.random());
+      var g = Math.floor(128 + 128 * Math.random());
+      var b = Math.floor(128 + 128 * Math.random());
+
+      function draw(x, y) {
+        r += Math.floor(41 * Math.random()) - 20;
+        g += Math.floor(41 * Math.random()) - 20;
+        b += Math.floor(41 * Math.random()) - 20;
+        if (r > 255) {
+          r = 255;
+        } else if (r < 128) {
+          r = 128;
+        }
+        if (g > 255) {
+          g = 255;
+        } else if (g < 128) {
+          g = 128;
+        }
+        if (b > 255) {
+          b = 255;
+        } else if (b < 128) {
+          b = 128;
+        }
+        ctx.fillStyle = 'rgb(' + r + ', ' + g + ', ' + b + ')';
+        for (var i = 0; i < N; i++) {
+          var theta = i / N * Math.PI * 2;
+          var x1 = x - centerX;
+          var y1 = y - centerY;
+          var cos = Math.cos(theta);
+          var sin = Math.sin(theta);
+          var x2 = centerX + x1 * cos - y1 * sin;
+          var y2 = centerY + x1 * sin + y1 * cos;
+          drawOne(x2, y2);
+          if (isMirror) {
+            drawOne(canvas.width - x2, y2);
+          }
+        }
+      }
+
+      var isDown = false;
+      canvas.addEventListener('pointerdown', function (event) {
+        isDown = true;
+        draw(event.clientX, event.clientY);
+      });
+      canvas.addEventListener('pointermove', function (event) {
+        if (isDown) {
+          draw(event.clientX, event.clientY);
+        }
+      });
+      canvas.addEventListener('pointerup', function (event) {
+        isDown = false;
+        draw(event.clientX, event.clientY);
+      });
+    </script>
+</body>
+</html>
