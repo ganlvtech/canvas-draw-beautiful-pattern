@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
     <style>
@@ -7,124 +8,201 @@
             margin: 0;
             overflow: hidden;
         }
+
         form {
             position: absolute;
             left: 0;
             top: 0;
             background-color: rgba(255, 255, 255, 0.5);
             padding: 0 1em;
+            z-index: 2;
         }
+
         canvas {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
             touch-action: none;
+            z-index: 1;
         }
     </style>
 </head>
+
 <body>
     <form>
         <p>N = <input type="text" id="N" name="N" value="5"></p>
         <p><input type="checkbox" id="no_mirror" name="no_mirror" value="1"> <label for="no_mirror">no mirror</label></p>
-        <p><input type="submit"> <button id="reset">Reset</button></p>
+        <p><input type="submit" value="Set param"> <button id="reset">Clear Canvas</button></p>
     </form>
     <canvas id="canvas" width="800" height="600"></canvas>
     <script>
-      var canvas = document.getElementById('canvas');
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-
-      var ctx = canvas.getContext('2d');
-
-      ctx.fillStyle = '#000000';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      document.getElementById('reset').addEventListener('click', function () {
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      });
-
-      var centerX = canvas.width / 2;
-      var centerY = canvas.height / 2;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(centerX - 1, centerY - 1, 3, 3);
-
-      var urlParams = new URLSearchParams(window.location.search);
-      var N = 5;
-      if (urlParams.has('N')) {
-        N = parseInt(urlParams.get('N'));
-      }
-      if (N < 1) {
-        N = 1;
-      }
-      var no_mirror = false;
-      if (urlParams.has('no_mirror')) {
-        no_mirror = urlParams.get('no_mirror') == true;
-      }
-      document.getElementById('N').value = N;
-      document.getElementById('no_mirror').checked = no_mirror;
-      document.getElementById('N').addEventListener('change', function () {
-        N = document.getElementById('N').value;
-      });
-      document.getElementById('no_mirror').checked = no_mirror;
-      document.getElementById('no_mirror').addEventListener('change', function () {
-        no_mirror = document.getElementById('no_mirror').checked;
-      });
-
-      function drawOne(x, y) {
-        ctx.fillRect(x - 2, y - 2, 5, 5);
-      }
-
-      var r = Math.floor(128 + 128 * Math.random());
-      var g = Math.floor(128 + 128 * Math.random());
-      var b = Math.floor(128 + 128 * Math.random());
-
-      function draw(x, y) {
-        r += Math.floor(41 * Math.random()) - 20;
-        g += Math.floor(41 * Math.random()) - 20;
-        b += Math.floor(41 * Math.random()) - 20;
-        if (r > 255) {
-          r = 255;
-        } else if (r < 128) {
-          r = 128;
+        function mulMatrix(m1, m2) {
+            return Array(m1.length).fill(null).map((_, i) => {
+                return Array(m2[0].length).fill(null).map((_, j) => {
+                    return m1[i].reduce((acc, a, k) => (acc + a * m2[k][j]), 0);
+                });
+            });
         }
-        if (g > 255) {
-          g = 255;
-        } else if (g < 128) {
-          g = 128;
-        }
-        if (b > 255) {
-          b = 255;
-        } else if (b < 128) {
-          b = 128;
-        }
-        ctx.fillStyle = 'rgb(' + r + ', ' + g + ', ' + b + ')';
-        for (var i = 0; i < N; i++) {
-          var theta = i / N * Math.PI * 2;
-          var x1 = x - centerX;
-          var y1 = y - centerY;
-          var cos = Math.cos(theta);
-          var sin = Math.sin(theta);
-          var x2 = centerX + x1 * cos - y1 * sin;
-          var y2 = centerY + x1 * sin + y1 * cos;
-          drawOne(x2, y2);
-          if (!no_mirror) {
-            drawOne(canvas.width - x2, y2);
-          }
-        }
-      }
 
-      var isDown = false;
-      canvas.addEventListener('pointerdown', function (event) {
-        isDown = true;
-        draw(event.clientX, event.clientY);
-      });
-      canvas.addEventListener('pointermove', function (event) {
-        if (isDown) {
-          draw(event.clientX, event.clientY);
+        function getRotationMatrix(centerX, centerY, theta) {
+            return mulMatrix(mulMatrix([
+                [1, 0, centerX],
+                [0, 1, centerY],
+                [0, 0, 1],
+            ], [
+                [Math.cos(theta), -Math.sin(theta), 0],
+                [Math.sin(theta), Math.cos(theta), 0],
+                [0, 0, 1],
+            ]), [
+                [1, 0, -centerX],
+                [0, 1, -centerY],
+                [0, 0, 1],
+            ])
         }
-      });
-      canvas.addEventListener('pointerup', function (event) {
-        isDown = false;
-        draw(event.clientX, event.clientY);
-      });
+
+        // States
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d');
+        var N = 5,
+            rotationMatrix;
+        var no_mirror = false;
+        var centerX, centerY;
+        var r = 255,
+            g = 255,
+            b = 255;
+        var lineWidth = 3;
+        var prevX, prevY;
+
+        function onWindowResize() {
+            canvas.width = window.innerWidth * window.devicePixelRatio;
+            canvas.height = window.innerHeight * window.devicePixelRatio;
+            centerX = canvas.width / 2;
+            centerY = canvas.height / 2;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(centerX - 1, centerY - 1, 3, 3);
+        }
+        window.addEventListener('resize', onWindowResize);
+        onWindowResize();
+
+        function resetCanvas() {
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(centerX - 1, centerY - 1, 3, 3);
+        }
+        document.getElementById('reset').addEventListener('click', resetCanvas);
+        resetCanvas();
+
+        function updateRotationMatrix() {
+            var theta = 1 / N * Math.PI * 2;
+            rotationMatrix = getRotationMatrix(centerX, centerY, theta);
+        }
+
+        var urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('N')) {
+            N = parseInt(urlParams.get('N'));
+        }
+        if (N < 1) {
+            N = 1;
+        }
+        updateRotationMatrix();
+        document.getElementById('N').value = N;
+        document.getElementById('N').addEventListener('change', function() {
+            N = document.getElementById('N').value;
+            updateRotationMatrix();
+        });
+
+        if (urlParams.has('no_mirror')) {
+            no_mirror = urlParams.get('no_mirror') == true;
+        }
+        document.getElementById('no_mirror').checked = no_mirror;
+        document.getElementById('no_mirror').checked = no_mirror;
+        document.getElementById('no_mirror').addEventListener('change', function() {
+            no_mirror = document.getElementById('no_mirror').checked;
+        });
+
+        function changeColor() {
+            r += Math.floor(40 * (Math.random() - 0.5));
+            g += Math.floor(40 * (Math.random() - 0.5));
+            b += Math.floor(40 * (Math.random() - 0.5));
+            if (r > 255) {
+                r = 255;
+            } else if (r < 128) {
+                r = 128;
+            }
+            if (g > 255) {
+                g = 255;
+            } else if (g < 128) {
+                g = 128;
+            }
+            if (b > 255) {
+                b = 255;
+            } else if (b < 128) {
+                b = 128;
+            }
+            ctx.strokeStyle = 'rgb(' + r + ', ' + g + ', ' + b + ')';
+            lineWidth += (Math.random() - 0.5) * 0.3;
+            if (lineWidth < 1) {
+                lineWidth = 1;
+            } else if (lineWidth > 5) {
+                lineWidth = 5;
+            }
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = 'round';
+        }
+
+        changeColor();
+
+        function drawLine(x1, y1, x2, y2) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+
+        function draw(x, y) {
+            changeColor();
+            var point1 = [
+                [prevX],
+                [prevY],
+                [1]
+            ];
+            var point2 = [
+                [x],
+                [y],
+                [1]
+            ];
+            for (var i = 0; i < N; i++) {
+                drawLine(point1[0], point1[1], point2[0], point2[1]);
+                if (!no_mirror) {
+                    drawLine(canvas.width - point1[0], point1[1], canvas.width - point2[0], point2[1]);
+                }
+                point1 = mulMatrix(rotationMatrix, point1);
+                point2 = mulMatrix(rotationMatrix, point2);
+            }
+        }
+
+        var isDown = false;
+        canvas.addEventListener('pointerdown', function(event) {
+            isDown = true;
+            prevX = event.clientX * window.devicePixelRatio;
+            prevY = event.clientY * window.devicePixelRatio;
+            draw(event.clientX * window.devicePixelRatio, event.clientY * window.devicePixelRatio);
+        });
+        canvas.addEventListener('pointermove', function(event) {
+            if (isDown) {
+                draw(event.clientX * window.devicePixelRatio, event.clientY * window.devicePixelRatio);
+                prevX = event.clientX * window.devicePixelRatio;
+                prevY = event.clientY * window.devicePixelRatio;
+            }
+        });
+        canvas.addEventListener('pointerup', function(event) {
+            isDown = false;
+            draw(event.clientX * window.devicePixelRatio, event.clientY * window.devicePixelRatio);
+        });
     </script>
 </body>
+
 </html>
